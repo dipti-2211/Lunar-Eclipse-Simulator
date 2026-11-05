@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lunar Eclipse Simulator — Interactive Astronomy Tool</title>
+  <meta name="description" content="An interactive, scientifically illustrated lunar eclipse simulator demonstrating umbra, penumbra, and syzygy alignment.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* =====================================================
+       DESIGN SYSTEM
+    ===================================================== */
+    :root {
+      --space-deep:   #03060f;
+      --space-mid:    #060b1a;
+      --space-panel:  #0a1120;
+      --space-card:   #0d1626;
+      --space-border: #1a2840;
+      --space-hover:  #182236;
+
+      --accent-gold:  #f5a623;
+      --accent-blue:  #38bdf8;
+      --accent-cyan:  #22d3ee;
+      --accent-red:   #f87171;
+      --accent-green: #4ade80;
+      --accent-purple:#a78bfa;
+
+      --text-primary: #e8edf5;
+      --text-secondary:#94a3b8;
+      --text-muted:   #4a5568;
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+
+      --shadow-glow-blue: 0 0 20px rgba(56,189,248,0.25);
+      --shadow-glow-gold: 0 0 20px rgba(245,166,35,0.3);
+      --shadow-panel: 0 8px 32px rgba(0,0,0,0.6);
+
+      --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Space Mono', ui-monospace, monospace;
+
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--space-deep);
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* =====================================================
+       STARFIELD BACKGROUND
+    ===================================================== */
+    #starfield-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: white;
+      animation: twinkle var(--d, 3s) var(--delay, 0s) ease-in-out infinite alternate;
+    }
+
+    @keyframes twinkle {
+      0%   { opacity: var(--min-op, 0.3); transform: scale(1); }
+      100% { opacity: var(--max-op, 1);   transform: scale(1.3); }
+    }
+
+    /* =====================================================
+       PAGE WRAPPER
+    ===================================================== */
+    .page {
+      position: relative;
+      z-index: 1;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 36px 20px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* =====================================================
+       HEADER
+    ===================================================== */
+    .site-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 14px;
+      padding-bottom: 4px;
+    }
+
+    .header-eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--accent-blue);
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeSlideDown 0.6s 0.1s ease forwards;
+    }
+
+    .header-eyebrow::before,
+    .header-eyebrow::after {
+      content: '';
+      display: block;
+      width: 40px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-blue));
+    }
+    .header-eyebrow::after { background: linear-gradient(90deg, var(--accent-blue), transparent); }
+
+    .site-title {
+      font-size: clamp(30px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+      color: #ffffff;
+      opacity: 0;
+      animation: fadeSlideDown 0.6s 0.2s ease forwards;
+    }
+
+    .site-title span {
+      color: #cbd5e1;
+      font-weight: 500;
+      display: inline-block;
+    }
+
+    .site-subtitle {
+      font-size: 15px;
+      color: var(--text-secondary);
+      max-width: 520px;
+      line-height: 1.6;
+      font-weight: 400;
+      opacity: 0;
+      animation: fadeSlideDown 0.6s 0.3s ease forwards;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeSlideDown 0.6s 0.4s ease forwards;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 13px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid;
+      transition: var(--transition);
+    }
+
+    .pill-blue   { background: rgba(56,189,248,0.1);  color: #7dd3fc; border-color: rgba(56,189,248,0.25); }
+    .pill-gold   { background: rgba(245,166,35,0.1);  color: #fcd34d; border-color: rgba(245,166,35,0.25); }
+    .pill-purple { background: rgba(167,139,250,0.1); color: #c4b5fd; border-color: rgba(167,139,250,0.25); }
+
+    .pill-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.7); }
+    }
+
+    /* =====================================================
+       SIMULATOR CARD
+    ===================================================== */
+    .sim-card {
+      background: var(--space-panel);
+      border: 1px solid var(--space-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-panel), 0 0 0 1px rgba(255,255,255,0.03);
+      opacity: 0;
+      animation: fadeSlideUp 0.7s 0.5s ease forwards;
+    }
+
+    /* --- Telemetry Bar --- */
+    .telemetry-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 20px;
+      background: rgba(3,6,15,0.7);
+      border-bottom: 1px solid var(--space-border);
+      backdrop-filter: blur(8px);
+    }
+
+    .tele-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .tele-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+      animation: pulse-live 1.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse-live {
+      0%,100% { box-shadow: 0 0 8px var(--accent-green); }
+      50%      { box-shadow: 0 0 18px var(--accent-green), 0 0 30px rgba(74,222,128,0.3); }
+    }
+
+    .tele-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--accent-green);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .tele-status {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent-blue);
+      transition: color 0.3s ease;
+    }
+
+    .tele-status.warning { color: var(--accent-gold); }
+    .tele-status.active  { color: var(--accent-green); }
+    .tele-status.eclipse { color: var(--accent-red); }
+
+    .tele-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .tele-metric {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    .tele-metric-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tele-metric-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      transition: color 0.2s ease;
+    }
+
+    .tele-metric-value.highlight { color: var(--accent-gold); }
+
+    /* --- Canvas --- */
+    #simCanvas {
+      display: block;
+      width: 100%;
+      height: 560px;
+      cursor: default;
+    }
+
+    /* --- Controls Bar --- */
+    .controls-bar {
+      background: rgba(6,11,26,0.95);
+      border-top: 1px solid var(--space-border);
+      padding: 14px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid;
+      transition: var(--transition);
+      white-space: nowrap;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .btn:active::after { opacity: 0.06; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #1d5a9e, #1a4a85);
+      border-color: rgba(56,189,248,0.4);
+      color: #fff;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, var(--shadow-glow-blue);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2068b5, #1d5a9e);
+      border-color: rgba(56,189,248,0.7);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(56,189,248,0.3);
+    }
+    .btn-primary:disabled {
+      opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(26,40,64,0.8);
+      border-color: var(--space-border);
+      color: var(--text-secondary);
+    }
+    .btn-secondary:hover {
+      background: var(--space-hover);
+      border-color: rgba(148,163,184,0.4);
+      color: var(--text-primary);
+      transform: translateY(-1px);
+    }
+    .btn-secondary:disabled {
+      opacity: 0.3; cursor: not-allowed; transform: none;
+    }
+
+    .btn-danger {
+      background: rgba(248,113,113,0.1);
+      border-color: rgba(248,113,113,0.3);
+      color: #fca5a5;
+    }
+    .btn-danger:hover {
+      background: rgba(248,113,113,0.2);
+      border-color: rgba(248,113,113,0.6);
+      transform: translateY(-1px);
+    }
+
+    /* Icon inside button */
+    .btn-icon {
+      width: 14px; height: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Select */
+    .ctrl-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+    }
+
+    .ctrl-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background: var(--space-card);
+      border: 1px solid var(--space-border);
+      color: var(--text-primary);
+      padding: 8px 32px 8px 12px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10L6 8z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      transition: var(--transition);
+    }
+    .ctrl-select:focus, .ctrl-select:hover {
+      border-color: rgba(56,189,248,0.5);
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.1);
+    }
+
+    /* Slider */
+    .slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ctrl-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 120px;
+      height: 4px;
+      background: var(--space-border);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .ctrl-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      cursor: pointer;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.2), 0 0 10px rgba(56,189,248,0.4);
+      transition: box-shadow 0.2s ease;
+    }
+    .ctrl-slider::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 0 4px rgba(56,189,248,0.3), 0 0 16px rgba(56,189,248,0.6);
+    }
+    .ctrl-slider::-moz-range-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.2);
+    }
+
+    .slider-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      min-width: 20px;
+      text-align: center;
+    }
+
+    /* =====================================================
+       FOOTER
+    ===================================================== */
+    .site-footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding-top: 16px;
+      opacity: 0;
+      animation: fadeSlideUp 0.7s 0.7s ease forwards;
+    }
+
+    .site-footer a { color: var(--text-secondary); text-decoration: none; }
+    .site-footer a:hover { color: var(--accent-blue); }
+
+    .site-footer a { color: var(--text-secondary); text-decoration: none; }
+    .site-footer a:hover { color: var(--accent-blue); }
+
+    /* =====================================================
+       ANIMATIONS
+    ===================================================== */
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Transition overlay on eclipse type change */
+    .canvas-wrap {
+      position: relative;
+      overflow: hidden;
+    }
+
+    #transitionFlash {
+      position: absolute;
+      inset: 0;
+      background: rgba(248,113,113,0.08);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Legacy */
+    applet { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- Procedural Starfield -->
+<div id="starfield-bg" aria-hidden="true"></div>
+
+<div class="page">
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header">
+    <div class="header-eyebrow">Astronomy Simulation</div>
+
+    <h1 class="site-title">
+      Lunar Eclipse <span>Simulator</span>
+    </h1>
+
+    <p class="site-subtitle">
+      An interactive, scientifically illustrated model of umbra &amp; penumbra geometry,
+      syzygy alignment, and the Blood Moon phenomenon.
+    </p>
+
+    <div class="pill-row">
+      <span class="pill pill-blue"><span class="pill-dot"></span>Live Simulation</span>
+      <span class="pill pill-gold">Total · Partial · Penumbral</span>
+      <span class="pill pill-purple">JDK 8 Applet Source Preserved</span>
+    </div>
+  </header>
+
+  <!-- ===== SIMULATOR CARD ===== -->
+  <div class="sim-card">
+
+    <!-- Telemetry Bar -->
+    <div class="telemetry-bar">
+      <div class="tele-left">
+        <div class="tele-dot"></div>
+        <span class="tele-label">SYS LIVE</span>
+        <span id="statusDisplay" class="tele-status">Ready — select mode and press Start</span>
+      </div>
+      <div class="tele-right">
+        <div class="tele-metric">
+          <span class="tele-metric-label">Mode</span>
+          <span id="modeDisplay" class="tele-metric-value highlight">Total</span>
+        </div>
+        <div class="tele-metric">
+          <span class="tele-metric-label">Speed</span>
+          <span id="speedDisplay" class="tele-metric-value">3×</span>
+        </div>
+        <div class="tele-metric">
+          <span class="tele-metric-label">Phase</span>
+          <span id="phaseDisplay" class="tele-metric-value">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas -->
+    <div class="canvas-wrap">
+      <canvas id="simCanvas" width="1060" height="480" role="img" aria-label="Lunar eclipse simulation canvas"></canvas>
+      <div id="transitionFlash"></div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div class="controls-bar">
+      <!-- Playback Buttons -->
+      <div class="ctrl-group">
+        <button class="btn btn-primary" id="startBtn" title="Start simulation">
+          <svg class="btn-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M4 3L13 8L4 13V3Z" fill="currentColor"/>
+          </svg>
+          Start
+        </button>
+        <button class="btn btn-secondary" id="pauseBtn" title="Pause simulation">
+          <svg class="btn-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="3" width="4" height="10" rx="1" fill="currentColor"/>
+            <rect x="9" y="3" width="4" height="10" rx="1" fill="currentColor"/>
+          </svg>
+          Pause
+        </button>
+        <button class="btn btn-danger" id="resetBtn" title="Reset simulation">
+          <svg class="btn-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 8C2 4.686 4.686 2 8 2c2.07 0 3.9.994 5.07 2.526" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M13 2v3.5H9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14 8c0 3.314-2.686 6-6 6S2 11.314 2 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="2 2"/>
+          </svg>
+          Reset
+        </button>
+      </div>
+
+      <!-- Eclipse Type -->
+      <div class="ctrl-group">
+        <label class="ctrl-label" for="eclipseTypeSelect">Eclipse Type</label>
+        <select class="ctrl-select" id="eclipseTypeSelect">
+          <option value="Total"     selected>Total</option>
+          <option value="Partial"         >Partial</option>
+          <option value="Penumbral"       >Penumbral</option>
+        </select>
+      </div>
+
+      <!-- Speed -->
+      <div class="ctrl-group">
+        <label class="ctrl-label" for="speedSlider">Speed</label>
+        <div class="slider-wrap">
+          <input type="range" class="ctrl-slider" id="speedSlider" min="1" max="10" value="3" step="1">
+          <span class="slider-val" id="speedValText">3</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    Interactive Lunar Eclipse Simulator &nbsp;·&nbsp; Astronomy Demonstration Tool &nbsp;·&nbsp;
+    <span style="color:var(--text-muted);">JDK 8 Applet Source Preserved for Legacy Submission</span>
+  </footer>
+
+</div>
+
+<!-- Legacy Applet tag preserved for appletviewer compatibility -->
+<applet code="LunarEclipseApplet.class" width="1000" height="600">
+  Your environment does not support Java Applets.
+</applet>
+
+<script>
+/* =====================================================
+   PROCEDURAL STARFIELD
+===================================================== */
+(function buildStarfield() {
+  const bg = document.getElementById('starfield-bg');
+  const count = 200;
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < count; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() < 0.08 ? (Math.random() * 2 + 2) : (Math.random() * 1.5 + 0.5);
+    const x = Math.random() * 100;
+    const y = Math.random() * 100;
+    const dur = (Math.random() * 4 + 2).toFixed(1) + 's';
+    const delay = (Math.random() * 6).toFixed(1) + 's';
+    const minOp = (Math.random() * 0.2 + 0.1).toFixed(2);
+    const maxOp = (Math.random() * 0.5 + 0.5).toFixed(2);
+    s.style.cssText = `
+      left:${x}%;top:${y}%;
+      width:${size}px;height:${size}px;
+      --d:${dur};--delay:${delay};
+      --min-op:${minOp};--max-op:${maxOp};
+    `;
+    fragment.appendChild(s);
+  }
+  bg.appendChild(fragment);
+})();
+
+/* =====================================================
+   SIMULATOR ENGINE
+===================================================== */
+(function () {
+  'use strict';
+
+  /* --- DOM --- */
+  const canvas  = document.getElementById('simCanvas');
+  const ctx     = canvas.getContext('2d');
+  const startBtn        = document.getElementById('startBtn');
+  const pauseBtn        = document.getElementById('pauseBtn');
+  const resetBtn        = document.getElementById('resetBtn');
+  const eclipseSelect   = document.getElementById('eclipseTypeSelect');
+  const speedSlider     = document.getElementById('speedSlider');
+  const speedValText    = document.getElementById('speedValText');
+  const speedDisplay    = document.getElementById('speedDisplay');
+  const statusDisplay   = document.getElementById('statusDisplay');
+  const modeDisplay     = document.getElementById('modeDisplay');
+  const phaseDisplay    = document.getElementById('phaseDisplay');
+  const flashOverlay    = document.getElementById('transitionFlash');
+
+  /* --- Simulation State (matches Java applet exactly) --- */
+  let running     = false;
+  let paused      = true;
+  let moonX       = 565;
+  let speed       = 3;
+  let direction   = 1;
+  let eclipseType = 'Total';
+  let stage       = 'Outside shadow';
+  let frameCount  = 0;        // for animated glow pulsing
+
+  // CSS logical dimensions (independent of DPR) — set by resizeCanvas()
+  let cssW = 1140;
+  let cssH = 560;
+
+  function getLayout() {
+    const w = cssW;
+    const h = cssH;
+    const cy = Math.floor(h / 2) - 10;
+    const sunX = Math.max(130, Math.floor(w * 0.12));
+    const sunR = 50;
+    const earthX = Math.floor(w * 0.46);
+    const earthR = 64;
+    const moonR = 34;
+    const shadowCenter = earthX + 335;
+    const minX = earthX + 130;
+    const maxX = Math.min(w - 65, earthX + 540);
+    return { w, h, cy, sunX, sunR, earthX, earthR, moonR, shadowCenter, minX, maxX };
+  }
+
+  /* --- Stage Update --- */
+  function updateStage() {
+    const { shadowCenter } = getLayout();
+    const relative = moonX - shadowCenter;
+    const abs = Math.abs(relative);
+
+    if (eclipseType === 'Total') {
+      if      (abs < 60)  stage = 'Total lunar eclipse';
+      else if (abs < 120) stage = 'Partial lunar eclipse';
+      else if (abs < 180) stage = 'Penumbral eclipse';
+      else                stage = 'Outside shadow';
+    } else if (eclipseType === 'Partial') {
+      if      (abs < 90)  stage = 'Partial lunar eclipse';
+      else if (abs < 180) stage = 'Penumbral eclipse';
+      else                stage = 'Outside shadow';
+    } else {
+      stage = abs < 180 ? 'Penumbral eclipse' : 'Outside shadow';
+    }
+  }
+
+  function updateMoonPosition() {
+    const { minX, maxX } = getLayout();
+    moonX += direction * speed;
+    if (moonX >= maxX) { moonX = maxX; direction = -1; }
+    else if (moonX <= minX) { moonX = minX; direction = 1; }
+    updateStage();
+  }
+
+  /* --- UI Update --- */
+  function refreshUI() {
+    // Status
+    phaseDisplay.textContent = running && !paused ? stage.replace(' eclipse','').replace(' lunar','') : '—';
+
+    // Status colour
+    if (!running || paused) {
+      statusDisplay.className = 'tele-status';
+    } else if (stage === 'Total lunar eclipse') {
+      statusDisplay.className = 'tele-status eclipse';
+    } else if (stage.includes('Partial') || stage.includes('Penumbral')) {
+      statusDisplay.className = 'tele-status warning';
+    } else {
+      statusDisplay.className = 'tele-status active';
+    }
+  }
+
+  /* =====================================================
+     DRAWING ENGINE
+  ===================================================== */
+  const PI2 = Math.PI * 2;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function drawBackground(w, h) {
+    /* Rich deep space gradient */
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0,   '#020612');
+    bg.addColorStop(0.4, '#060c1e');
+    bg.addColorStop(1,   '#0a1428');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    /* Subtle nebula cloud */
+    const nebX = w * 0.72, nebY = h * 0.35;
+    const neb = ctx.createRadialGradient(nebX, nebY, 0, nebX, nebY, 220);
+    neb.addColorStop(0,   'rgba(76, 29, 149, 0.07)');
+    neb.addColorStop(0.5, 'rgba(30, 64, 175, 0.04)');
+    neb.addColorStop(1,   'transparent');
+    ctx.fillStyle = neb;
+    ctx.fillRect(0, 0, w, h);
+
+    /* Stars — deterministic (same as Java formula) */
+    for (let i = 0; i < 95; i++) {
+      const sx = (i * 97 + 31) % Math.max(1, w);
+      const sy = (i * 53 + 19) % Math.max(1, h);
+      const r  = i % 5 === 0 ? 1.5 : 0.7;
+      /* subtle twinkle via frameCount */
+      const twinkle = 0.5 + 0.5 * Math.sin((frameCount * 0.02) + i * 0.8);
+      ctx.globalAlpha = 0.35 + twinkle * 0.55;
+      ctx.fillStyle = i % 7 === 0 ? '#c4b5fd' : i % 11 === 0 ? '#93c5fd' : '#ffffff';
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, PI2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawScene(w, h) {
+    const { cy, sunX, sunR, earthX, earthR, moonR, shadowCenter } = getLayout();
+    const pulse   = 0.5 + 0.5 * Math.sin(frameCount * 0.04); // 0–1 animated pulse
+
+    /* ---- TITLE (Pure white & soft silver-white - professional & clean) ---- */
+    ctx.save();
+    ctx.font = 'bold 22px Inter, system-ui, sans-serif';
+    ctx.letterSpacing = '1px';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('LUNAR ECLIPSE SIMULATOR', 28, 38);
+    ctx.restore();
+
+    ctx.font = '11px "Space Mono", monospace';
+    ctx.fillStyle = 'rgba(203, 213, 225, 0.75)';
+    ctx.fillText('ILLUSTRATIVE GEOMETRY  ·  NOT TO SCALE', 30, 58);
+
+    /* ---- SUNLIGHT RAYS ---- */
+    const rayAlpha = 0.28 + pulse * 0.08;
+    for (let ri = -1; ri <= 1; ri++) {
+      const oy = ri * 38;
+      const rg = ctx.createLinearGradient(sunX + sunR + 4, cy + oy, earthX - earthR - 4, cy + oy);
+      rg.addColorStop(0,   `rgba(255,220,100,${rayAlpha})`);
+      rg.addColorStop(0.5, `rgba(255,200,80,${rayAlpha * 0.6})`);
+      rg.addColorStop(1,   `rgba(255,180,60,${rayAlpha * 0.1})`);
+      ctx.strokeStyle = rg;
+      ctx.lineWidth = ri === 0 ? 1.6 : 1.2;
+      ctx.setLineDash([6, 7]);
+      ctx.beginPath();
+      ctx.moveTo(sunX + sunR + 4, cy + oy);
+      ctx.lineTo(earthX - earthR - 4, cy + oy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    /* ---- SHADOW CONES ---- */
+    const shadowStart = earthX + earthR - 2;
+    const farX        = Math.min(w - 18, earthX + 560);
+
+    // Penumbra
+    const penumbraGrad = ctx.createLinearGradient(shadowStart, 0, farX, 0);
+    penumbraGrad.addColorStop(0, 'rgba(80,100,160,0.22)');
+    penumbraGrad.addColorStop(1, 'rgba(80,100,160,0.03)');
+    ctx.fillStyle = penumbraGrad;
+    ctx.beginPath();
+    ctx.moveTo(shadowStart, cy - 50);
+    ctx.lineTo(farX, cy - 170);
+    ctx.lineTo(farX, cy + 170);
+    ctx.lineTo(shadowStart, cy + 50);
+    ctx.closePath();
+    ctx.fill();
+
+    // Umbra
+    const umbraFarX = Math.min(farX, earthX + 440);
+    const umbraGrad = ctx.createLinearGradient(shadowStart, 0, umbraFarX, 0);
+    umbraGrad.addColorStop(0, 'rgba(1,3,10,0.96)');
+    umbraGrad.addColorStop(0.6, 'rgba(2,4,14,0.88)');
+    umbraGrad.addColorStop(1, 'rgba(5,8,22,0.6)');
+    ctx.fillStyle = umbraGrad;
+    ctx.beginPath();
+    ctx.moveTo(shadowStart, cy - 34);
+    ctx.lineTo(umbraFarX, cy - 80);
+    ctx.lineTo(umbraFarX, cy + 80);
+    ctx.lineTo(shadowStart, cy + 34);
+    ctx.closePath();
+    ctx.fill();
+
+    /* ---- SUN ---- */
+    const sunPulse = 0.5 + 0.5 * Math.sin(frameCount * 0.02);
+
+    // Corona aura layers
+    [115, 88, 70].forEach((r, i) => {
+      const alpha = [0.03, 0.06, 0.1][i] + sunPulse * 0.03;
+      const aura = ctx.createRadialGradient(sunX, cy, 0, sunX, cy, r);
+      aura.addColorStop(0,   `rgba(255,200,60,${alpha})`);
+      aura.addColorStop(0.6, `rgba(255,160,30,${alpha * 0.5})`);
+      aura.addColorStop(1,   'transparent');
+      ctx.fillStyle = aura;
+      ctx.beginPath();
+      ctx.arc(sunX, cy, r, 0, PI2);
+      ctx.fill();
+    });
+
+    // Sun body
+    const sunGrad = ctx.createRadialGradient(sunX - 12, cy - 12, 4, sunX, cy, sunR);
+    sunGrad.addColorStop(0,    'rgb(255,252,205)');
+    sunGrad.addColorStop(0.3,  'rgb(255,235,120)');
+    sunGrad.addColorStop(0.75, 'rgb(255,165,30)');
+    sunGrad.addColorStop(1,    'rgb(240,110,10)');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(sunX, cy, sunR, 0, PI2);
+    ctx.fill();
+
+    // Sun limb glow
+    ctx.strokeStyle = `rgba(255,200,60,${0.5 + sunPulse * 0.3})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(sunX, cy, sunR, 0, PI2);
+    ctx.stroke();
+
+    labelWithGlow('SUN', sunX, cy + sunR + 26, '#fbbf24');
+
+    /* ---- EARTH ---- */
+    // Atmosphere halo
+    const atmGrad = ctx.createRadialGradient(earthX, cy, earthR - 2, earthX, cy, earthR + 18);
+    atmGrad.addColorStop(0,   'rgba(100,180,255,0.20)');
+    atmGrad.addColorStop(0.5, 'rgba(80,150,240,0.08)');
+    atmGrad.addColorStop(1,   'transparent');
+    ctx.fillStyle = atmGrad;
+    ctx.beginPath();
+    ctx.arc(earthX, cy, earthR + 18, 0, PI2);
+    ctx.fill();
+
+    // Ocean
+    const earthGrad = ctx.createRadialGradient(earthX - 18, cy - 20, 6, earthX, cy, earthR);
+    earthGrad.addColorStop(0,   'rgb(50,135,225)');
+    earthGrad.addColorStop(0.5, 'rgb(28,100,185)');
+    earthGrad.addColorStop(1,   'rgb(16,60,130)');
+    ctx.fillStyle = earthGrad;
+    ctx.beginPath();
+    ctx.arc(earthX, cy, earthR, 0, PI2);
+    ctx.fill();
+
+    // Continents (scaled up proportionally)
+    const continents = [
+      [earthX - 38, cy - 32, 32, 20],
+      [earthX + 6,  cy + 2,  36, 24],
+      [earthX - 14, cy + 26, 20, 13],
+      [earthX + 20, cy - 25, 15, 17],
+    ];
+    continents.forEach(([cx2, cy2, cw, ch]) => {
+      const landGrad = ctx.createRadialGradient(cx2 + cw/2, cy2 + ch/2, 0, cx2 + cw/2, cy2 + ch/2, Math.max(cw, ch));
+      landGrad.addColorStop(0, 'rgb(80,185,120)');
+      landGrad.addColorStop(1, 'rgb(50,155,90)');
+      ctx.fillStyle = landGrad;
+      ctx.beginPath();
+      ctx.ellipse(cx2 + cw/2, cy2 + ch/2, cw/2, ch/2, 0, 0, PI2);
+      ctx.fill();
+    });
+
+    // Polar icecap
+    ctx.fillStyle = 'rgba(220,235,255,0.65)';
+    ctx.beginPath();
+    ctx.ellipse(earthX, cy - earthR + 10, 26, 12, 0, 0, PI2);
+    ctx.fill();
+
+    // Specular highlight
+    const specGrad = ctx.createRadialGradient(earthX - 20, cy - 22, 0, earthX - 20, cy - 22, 28);
+    specGrad.addColorStop(0, 'rgba(255,255,255,0.18)');
+    specGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = specGrad;
+    ctx.beginPath();
+    ctx.arc(earthX, cy, earthR, 0, PI2);
+    ctx.fill();
+
+    // Atmosphere ring
+    ctx.strokeStyle = 'rgba(100,180,255,0.45)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(earthX, cy, earthR, 0, PI2);
+    ctx.stroke();
+
+    labelWithGlow('EARTH', earthX, cy + earthR + 26, '#38bdf8');
+
+    /* ---- ORBIT GUIDE ---- */
+    ctx.strokeStyle = 'rgba(148,163,184,0.18)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(earthX + earthR + 8, cy);
+    ctx.lineTo(w - 20, cy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    /* ---- MOON ---- */
+    let mx = moonX;
+    let my = cy;
+    if (eclipseType === 'Penumbral') my = cy - 118;
+    if (eclipseType === 'Partial')   my = cy - 40;
+
+    // Moon atmosphere / corona
+    const moonAura = ctx.createRadialGradient(mx, my, moonR, mx, my, moonR + 14);
+    moonAura.addColorStop(0, 'rgba(200,210,230,0.12)');
+    moonAura.addColorStop(1, 'transparent');
+    ctx.fillStyle = moonAura;
+    ctx.beginPath();
+    ctx.arc(mx, my, moonR + 14, 0, PI2);
+    ctx.fill();
+
+    // Moon base
+    const moonGrad = ctx.createRadialGradient(mx - 10, my - 10, 3, mx, my, moonR);
+    moonGrad.addColorStop(0,   'rgb(235,240,248)');
+    moonGrad.addColorStop(0.4, 'rgb(208,215,228)');
+    moonGrad.addColorStop(0.8, 'rgb(172,180,196)');
+    moonGrad.addColorStop(1,   'rgb(142,150,166)');
+    ctx.fillStyle = moonGrad;
+    ctx.beginPath();
+    ctx.arc(mx, my, moonR, 0, PI2);
+    ctx.fill();
+
+    // Craters with shading (scaled up)
+    [
+      [mx - 14, my - 11, 11, 8.5],
+      [mx + 7,  my + 5,  10, 7.5],
+      [mx - 4,  my + 14, 7, 5.5],
+      [mx + 14, my - 18, 5.5, 4],
+    ].forEach(([cx2, cy2, cw, ch]) => {
+      ctx.fillStyle = 'rgba(120,128,145,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(cx2, cy2, cw/2, ch/2, 0.2, 0, PI2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 0.6;
+      ctx.beginPath();
+      ctx.ellipse(cx2 - 1, cy2 - 1, cw/2, ch/2, 0.2, 0, PI2);
+      ctx.stroke();
+    });
+
+    // Eclipse shadow overlay (smooth darkening)
+    const rel = Math.abs(mx - shadowCenter);
+    if (rel < 180) {
+      const t = Math.max(0, 1 - rel / 180); // 0–1 smooth
+      let baseDark = t * 0.88;
+
+      if (eclipseType === 'Penumbral')             baseDark = Math.min(baseDark, 0.25);
+      if (eclipseType === 'Partial' && rel < 90)   baseDark = Math.min(baseDark, 0.62);
+
+      // Dark shadow
+      ctx.fillStyle = `rgba(5,8,20,${baseDark * 0.92})`;
+      ctx.beginPath();
+      ctx.arc(mx, my, moonR, 0, PI2);
+      ctx.fill();
+
+      // Blood Moon reddish glow during totality
+      if (eclipseType === 'Total' && rel < 60) {
+        const totality = Math.max(0, 1 - rel / 60);
+        const bloodAlpha = totality * 0.65;
+        const bloodGrad = ctx.createRadialGradient(mx, my, 0, mx, my, moonR);
+        bloodGrad.addColorStop(0, `rgba(205,62,32,${bloodAlpha * 0.72})`);
+        bloodGrad.addColorStop(0.5, `rgba(182,46,26,${bloodAlpha * 0.52})`);
+        bloodGrad.addColorStop(1, `rgba(142,32,16,${bloodAlpha * 0.32})`);
+        ctx.fillStyle = bloodGrad;
+        ctx.beginPath();
+        ctx.arc(mx, my, moonR, 0, PI2);
+        ctx.fill();
+
+        // Outer glow when in totality
+        const glowGrad = ctx.createRadialGradient(mx, my, moonR, mx, my, moonR + 24);
+        glowGrad.addColorStop(0, `rgba(205,62,32,${totality * 0.30})`);
+        glowGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = glowGrad;
+        ctx.beginPath();
+        ctx.arc(mx, my, moonR + 24, 0, PI2);
+        ctx.fill();
+      }
+    }
+
+    // Moon specular highlight
+    const moonSpec = ctx.createRadialGradient(mx - 11, my - 11, 0, mx - 11, my - 11, 20);
+    moonSpec.addColorStop(0, 'rgba(255,255,255,0.16)');
+    moonSpec.addColorStop(1, 'transparent');
+    ctx.fillStyle = moonSpec;
+    ctx.beginPath();
+    ctx.arc(mx, my, moonR, 0, PI2);
+    ctx.fill();
+
+    // Moon limb
+    ctx.strokeStyle = 'rgba(220,228,240,0.55)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(mx, my, moonR, 0, PI2);
+    ctx.stroke();
+
+    labelWithGlow('MOON', mx, my + moonR + 22, '#cbd5e1');
+
+    /* ---- LEGEND ---- */
+    const ly = h - 45;
+    ctx.font = '11px "Space Mono", monospace';
+    ctx.fillStyle = 'rgba(203,213,225,0.7)';
+    ctx.fillText('SHADOW KEY:', 28, ly);
+
+    // Umbra swatch
+    ctx.fillStyle = 'rgba(2,4,14,0.95)';
+    ctx.strokeStyle = 'rgba(60,80,120,0.5)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 122, ly - 12, 26, 14, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(226,232,240,0.9)';
+    ctx.font = '11.5px Inter, sans-serif';
+    ctx.fillText('Umbra (total shadow)', 156, ly);
+
+    // Penumbra swatch
+    ctx.fillStyle = 'rgba(80,100,160,0.38)';
+    ctx.strokeStyle = 'rgba(80,100,160,0.55)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, 320, ly - 12, 26, 14, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(226,232,240,0.9)';
+    ctx.fillText('Penumbra (partial shadow)', 354, ly);
+
+    /* ---- BOTTOM STATUS LINE ---- */
+    ctx.font = '11px "Space Mono", monospace';
+    ctx.fillStyle = 'rgba(148,163,184,0.75)';
+    ctx.fillText('MODE: ' + eclipseType.toUpperCase(), 28, h - 18);
+    const stageStr = 'STAGE: ' + stage.toUpperCase();
+    const stageX = Math.max(260, w - ctx.measureText(stageStr).width - 28);
+
+    // Stage colour
+    const stageColors = {
+      'Total lunar eclipse': '#f87171',
+      'Partial lunar eclipse': '#fbbf24',
+      'Penumbral eclipse': '#38bdf8',
+      'Outside shadow': 'rgba(148,163,184,0.75)',
+    };
+    ctx.fillStyle = stageColors[stage] || 'rgba(148,163,184,0.75)';
+    ctx.fillText(stageStr, stageX, h - 18);
+  }
+
+  /* ---- Helper: draw rounded rect without Path2D for compat ---- */
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+  }
+
+  /* ---- Helper: label with subtle glow ---- */
+  function labelWithGlow(text, cx, y, color) {
+    ctx.font = 'bold 12px "Space Mono", monospace';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = color;
+    ctx.shadowBlur  = 6;
+    ctx.fillText(text, cx, y);
+    ctx.shadowBlur  = 0;
+    ctx.textAlign   = 'left';
+  }
+
+  /* =====================================================
+     RENDER LOOP
+  ===================================================== */
+  function render() {
+    // Use CSS logical dimensions (not physical canvas.width/height)
+    // because ctx.scale(dpr,dpr) already transforms physical→logical space
+    ctx.clearRect(0, 0, cssW, cssH);
+    drawBackground(cssW, cssH);
+    drawScene(cssW, cssH);
+    frameCount++;
+  }
+
+  let lastTime = 0;
+  let accumulator = 0;
+  const stepInterval = 45;
+
+  function loop(currentTime) {
+    if (!lastTime) lastTime = currentTime;
+    const delta = Math.min(currentTime - lastTime, 100);
+    lastTime = currentTime;
+
+    if (running && !paused) {
+      accumulator += delta;
+      while (accumulator >= stepInterval) {
+        updateMoonPosition();
+        accumulator -= stepInterval;
+      }
+      statusDisplay.textContent = 'Current stage: ' + stage;
+      refreshUI();
+    }
+
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  /* =====================================================
+     EVENT HANDLERS
+  ===================================================== */
+  startBtn.addEventListener('click', function () {
+    running = true;
+    paused  = false;
+    statusDisplay.textContent = 'Animation running';
+    statusDisplay.className   = 'tele-status active';
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    refreshUI();
+  });
+
+  pauseBtn.addEventListener('click', function () {
+    paused = true;
+    statusDisplay.textContent = 'Paused — ' + stage;
+    statusDisplay.className   = 'tele-status';
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    refreshUI();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    running = false;
+    paused  = true;
+    moonX   = getLayout().minX;
+    direction = 1;
+    updateStage();
+    statusDisplay.textContent = 'Simulation reset — press Start';
+    statusDisplay.className   = 'tele-status';
+    startBtn.disabled = false;
+    pauseBtn.disabled = false;
+    refreshUI();
+  });
+
+  eclipseSelect.addEventListener('change', function () {
+    eclipseType = eclipseSelect.value;
+    moonX = getLayout().minX;
+    direction = 1;
+    paused = true;
+    running = false;
+    updateStage();
+    statusDisplay.textContent = eclipseType + ' eclipse selected — press Start';
+    statusDisplay.className   = 'tele-status';
+    modeDisplay.textContent   = eclipseType;
+    startBtn.disabled = false;
+    pauseBtn.disabled = false;
+
+    // Flash transition overlay
+    flashOverlay.style.opacity = '1';
+    setTimeout(() => { flashOverlay.style.opacity = '0'; }, 300);
+    refreshUI();
+  });
+
+  speedSlider.addEventListener('input', function () {
+    speed = parseInt(speedSlider.value, 10);
+    speedValText.textContent = speed;
+    speedDisplay.textContent = speed + '×';
+  });
+
+  /* =====================================================
+     CANVAS RESIZE
+  ===================================================== */
+  function resizeCanvas() {
+    const container = canvas.parentElement;
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    cssW = rect.width  || 1140;
+    cssH = 560;
+
+    // Setting canvas.width resets the context transform — always call scale() after
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width  = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    ctx.scale(dpr, dpr);  // scale once; cleared automatically on next canvas.width assignment
+  }
+
+  window.addEventListener('resize', function() {
+    // Debounce
+    clearTimeout(window._resizeTimer);
+    window._resizeTimer = setTimeout(resizeCanvas, 150);
+  });
+  resizeCanvas();
+
+  /* =====================================================
+     BOOT
+  ===================================================== */
+  moonX = getLayout().minX;
+  updateStage();
+  pauseBtn.disabled = true;   // nothing running yet — Pause has no effect until Start
+  startBtn.disabled = false;
+  refreshUI();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
